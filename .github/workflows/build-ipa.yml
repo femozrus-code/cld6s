@@ -9,10 +9,13 @@ jobs:
   build:
     runs-on: macos-14
     steps:
-      - name: Checkout (with submodules)
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Fetch Polyfills dependency
+        run: |
+          rm -rf Polyfills
+          git clone --depth 1 https://github.com/PoomSmart/Polyfills.git Polyfills
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
