@@ -8,6 +8,7 @@
 #import "ViewController.h"
 #import "PolyfillsLoader.h"
 #import "LoadingOverlayView.h"
+#import "BootMenuViewController.h"
 
 #import <WebKit/WebKit.h>
 
@@ -99,7 +100,20 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
 - (void)injectCustomCSS {
     NSString *css = @"button[data-testid='login-with-google'] { display: none !important; }"
     "button[data-testid='login-with-google'] + p { display: none !important; }"
-    ".dframe-root[data-variant='web'][data-collapsed][data-hovering]:not([data-wco]) .dframe-sidebar-body { opacity: 1 !important; }";
+    ".dframe-root[data-variant='web'][data-collapsed][data-hovering]:not([data-wco]) .dframe-sidebar-body { opacity: 1 !important; }"
+    // Performance: this hardware struggles with CSS transitions/animations far
+    // more than modern devices. perf.js already tells JS-driven animation
+    // libraries to skip themselves via prefers-reduced-motion; this is the
+    // backup for anything animated with plain CSS instead.
+    "*, *::before, *::after {"
+    "  animation-duration: 0.001s !important;"
+    "  animation-delay: 0s !important;"
+    "  transition-duration: 0.001s !important;"
+    "  transition-delay: 0s !important;"
+    "  scroll-behavior: auto !important;"
+    "  backdrop-filter: none !important;"
+    "  -webkit-backdrop-filter: none !important;"
+    "}";
     NSString *js = [NSString stringWithFormat:
                     @"(function(){"
                     "var s=document.createElement('style');"
@@ -148,11 +162,62 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
 
     //[self showLoadingOverlay];
 
-    // Injecting the polyfills reads a few hundred files off disk, so give the
-    // overlay a chance to reach the screen before blocking the main thread.
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self startLoading];
-    });
+    [self presentBootMenuThenStart];
+}
+
+- (void)presentBootMenuThenStart {
+    BootMenuViewController *boot = [[BootMenuViewController alloc] init];
+    boot.modalPresentationStyle = UIModalPresentationFullScreen;
+
+    __weak typeof(self) weakSelf = self;
+    boot.onContinue = ^(NSString *chosenName) {
+        typeof(self) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        if (chosenName.length > 0) {
+            [strongSelf flashWelcomeBanner:chosenName];
+        }
+        // Injecting the polyfills reads a few hundred files off disk, so give
+        // the UI a chance to settle before blocking the main thread.
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [strongSelf startLoading];
+        });
+    };
+
+    [self presentViewController:boot animated:NO completion:nil];
+}
+
+- (void)flashWelcomeBanner:(NSString *)name {
+    UILabel *banner = [[UILabel alloc] init];
+    banner.translatesAutoresizingMaskIntoConstraints = NO;
+    banner.text = [NSString stringWithFormat:@"Welcome to %@", name];
+    banner.font = [UIFont boldSystemFontOfSize:15];
+    banner.textColor = UIColor.whiteColor;
+    banner.textAlignment = NSTextAlignmentCenter;
+    banner.backgroundColor = [UIColor colorWithRed:0.80 green:0.42 blue:0.28 alpha:0.92];
+    banner.layer.cornerRadius = 10;
+    banner.clipsToBounds = YES;
+    banner.alpha = 0;
+
+    [self.view addSubview:banner];
+    UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [banner.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [banner.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
+        [banner.widthAnchor constraintLessThanOrEqualToAnchor:safe.widthAnchor constant:-140],
+        [banner.heightAnchor constraintEqualToConstant:30],
+    ]];
+
+    [UIView animateWithDuration:0.25 animations:^{
+        banner.alpha = 1;
+    } completion:^(BOOL finished) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [UIView animateWithDuration:0.3 animations:^{
+                banner.alpha = 0;
+            } completion:^(BOOL finished2) {
+                [banner removeFromSuperview];
+            }];
+        });
+    }];
 }
 
 - (void)dealloc {
@@ -165,6 +230,7 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
 
     [self injectIOSVersion];
     [self injectCustomCSS];
+    [self injectScriptNamed:@"perf"];
     [self injectScriptNamed:@"legacy-transpiler"];
     [self injectScriptNamed:@"patch"];
     [self injectScriptNamed:@"debug-probe"];
