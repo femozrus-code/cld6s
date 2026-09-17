@@ -8,7 +8,8 @@
 #import "ViewController.h"
 #import "PolyfillsLoader.h"
 #import "LoadingOverlayView.h"
-#import "BootMenuViewController.h"
+#import "TerminalMenuViewController.h"
+#import "SettingsViewController.h"
 
 #import <WebKit/WebKit.h>
 
@@ -162,28 +163,38 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
 
     //[self showLoadingOverlay];
 
-    [self presentBootMenuThenStart];
+    [self presentTerminalMenu];
 }
 
-- (void)presentBootMenuThenStart {
-    BootMenuViewController *boot = [[BootMenuViewController alloc] init];
-    boot.modalPresentationStyle = UIModalPresentationFullScreen;
+- (void)presentTerminalMenu {
+    TerminalMenuViewController *terminal = [[TerminalMenuViewController alloc] init];
+    terminal.modalPresentationStyle = UIModalPresentationFullScreen;
 
     __weak typeof(self) weakSelf = self;
-    boot.onContinue = ^(NSString *chosenName) {
+    terminal.onRun = ^{
         typeof(self) strongSelf = weakSelf;
         if (!strongSelf) return;
-        if (chosenName.length > 0) {
-            [strongSelf flashWelcomeBanner:chosenName];
-        }
-        // Injecting the polyfills reads a few hundred files off disk, so give
-        // the UI a chance to settle before blocking the main thread.
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [strongSelf startLoading];
-        });
+
+        [strongSelf dismissViewControllerAnimated:YES completion:^{
+            NSString *customName = [[NSUserDefaults standardUserDefaults] stringForKey:@"BootMenu.CustomName"];
+            if (customName.length > 0) {
+                [strongSelf flashWelcomeBanner:customName];
+            }
+            // Injecting the polyfills reads a few hundred files off disk, so give
+            // the UI a chance to settle before blocking the main thread.
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [strongSelf startLoading];
+            });
+        }];
     };
 
-    [self presentViewController:boot animated:NO completion:nil];
+    [self presentViewController:terminal animated:NO completion:nil];
+}
+
+- (void)openSettings {
+    SettingsViewController *settings = [[SettingsViewController alloc] init];
+    settings.modalPresentationStyle = UIModalPresentationFullScreen;
+    [self presentViewController:settings animated:YES completion:nil];
 }
 
 - (void)flashWelcomeBanner:(NSString *)name {
@@ -335,11 +346,27 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
     [self.view addSubview:button];
     self.pasteLinkButton = button;
 
+    UIButton *settingsButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    settingsButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [settingsButton setTitle:@"⚙︎" forState:UIControlStateNormal];
+    settingsButton.backgroundColor = [UIColor colorWithWhite:0.5 alpha:0.25];
+    [settingsButton setTitleColor:UIColor.labelColor forState:UIControlStateNormal];
+    settingsButton.titleLabel.font = [UIFont systemFontOfSize:16];
+    settingsButton.layer.cornerRadius = 14;
+    settingsButton.clipsToBounds = YES;
+    [settingsButton addTarget:self action:@selector(openSettings) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:settingsButton];
+
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
         [button.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-12],
         [button.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
         [button.heightAnchor constraintEqualToConstant:32],
+
+        [settingsButton.trailingAnchor constraintEqualToAnchor:button.leadingAnchor constant:-8],
+        [settingsButton.centerYAnchor constraintEqualToAnchor:button.centerYAnchor],
+        [settingsButton.widthAnchor constraintEqualToConstant:32],
+        [settingsButton.heightAnchor constraintEqualToConstant:32],
     ]];
 }
 
