@@ -50,6 +50,7 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
 @property (nonatomic, assign) NSInteger errorCount;
 @property (nonatomic, copy, nullable) NSString *siteBuild;
 @property (nonatomic, assign) BOOL showingFailure;
+@property (nonatomic, assign) BOOL hasPresentedTerminal;
 
 /// Diagnostic-only: a persistent, always-on-screen strip showing what element
 /// last received a touch, so a "button does nothing" report can be root-caused
@@ -162,8 +163,20 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
     [self setupPasteLinkButton];
 
     //[self showLoadingOverlay];
+}
 
-    [self presentTerminalMenu];
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+
+    // Presenting a view controller from viewDidLoad can silently fail because
+    // this view isn't guaranteed to be attached to a window yet. viewDidAppear
+    // is the first point where that's guaranteed, so the terminal boot screen
+    // is presented from here instead — once only, since viewDidAppear can
+    // fire again later (e.g. after Settings is dismissed back to this screen).
+    if (!self.hasPresentedTerminal) {
+        self.hasPresentedTerminal = YES;
+        [self presentTerminalMenu];
+    }
 }
 
 - (void)presentTerminalMenu {
