@@ -21,6 +21,7 @@
 		CEADC8662F5E8F29000F74EA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CEADC82E2F5E8F29000F74EA /* Assets.xcassets */; };
 		E92D5D8E2FC17322005460E8 /* patch.js in Resources */ = {isa = PBXBuildFile; fileRef = CEADC85D2F5E8F29000F74EA /* patch.js */; };
 		E934A9723055443800056BAB /* legacy-transpiler.js in Resources */ = {isa = PBXBuildFile; fileRef = E934A9713055443800056BAB /* legacy-transpiler.js */; };
+		A1DEB0011111111100000001 /* debug-probe.js in Resources */ = {isa = PBXBuildFile; fileRef = A1DEB0021111111100000002 /* debug-probe.js */; };
 		E9AA10032FD0000000000003 /* LoadingOverlayView.m in Sources */ = {isa = PBXBuildFile; fileRef = E9AA10022FD0000000000002 /* LoadingOverlayView.m */; };
 /* End PBXBuildFile section */
 
@@ -77,6 +78,7 @@
 		CEADC8462F5E8F29000F74EA /* ClaudeLegacyUITestsLaunchTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ClaudeLegacyUITestsLaunchTests.m; sourceTree = "<group>"; };
 		CEADC85D2F5E8F29000F74EA /* patch.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = patch.js; sourceTree = "<group>"; };
 		E934A9713055443800056BAB /* legacy-transpiler.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "legacy-transpiler.js"; sourceTree = "<group>"; };
+		A1DEB0021111111100000002 /* debug-probe.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "debug-probe.js"; sourceTree = "<group>"; };
 		E9AA10012FD0000000000001 /* LoadingOverlayView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LoadingOverlayView.h; sourceTree = "<group>"; };
 		E9AA10022FD0000000000002 /* LoadingOverlayView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LoadingOverlayView.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -141,6 +143,7 @@
 				CEADC8252F5E8F26000F74EA /* ViewController.h */,
 				CEADC8262F5E8F26000F74EA /* ViewController.m */,
 				E934A9713055443800056BAB /* legacy-transpiler.js */,
+				A1DEB0021111111100000002 /* debug-probe.js */,
 				CEADC8282F5E8F26000F74EA /* LaunchScreen.storyboard */,
 				CEADC82B2F5E8F26000F74EA /* Main.storyboard */,
 				CEADC82E2F5E8F29000F74EA /* Assets.xcassets */,
@@ -274,6 +277,7 @@
 			files = (
 				CE123A592F5EDE2C008A1A3A /* Polyfills in Resources */,
 				E934A9723055443800056BAB /* legacy-transpiler.js in Resources */,
+				A1DEB0011111111100000001 /* debug-probe.js in Resources */,
 				CEADC82D2F5E8F26000F74EA /* Main.storyboard in Resources */,
 				E92D5D8E2FC17322005460E8 /* patch.js in Resources */,
 				CEADC82A2F5E8F26000F74EA /* LaunchScreen.storyboard in Resources */,
@@ -479,11 +483,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = R743P2D925;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ClaudeLegacy/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Claude;
+				INFOPLIST_KEY_CFBundleDisplayName = "Claude (debug)";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -494,14 +498,14 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.11;
+				MARKETING_VERSION = "1.0.11-debug2";
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
 					"-framework",
 					WebKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.mgefimov.ClaudeLegacy;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mgefimov.ClaudeLegacy.debug;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -514,11 +518,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = R743P2D925;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ClaudeLegacy/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Claude;
+				INFOPLIST_KEY_CFBundleDisplayName = "Claude (debug)";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -529,14 +533,14 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.11;
+				MARKETING_VERSION = "1.0.11-debug2";
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
 					"-framework",
 					WebKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.mgefimov.ClaudeLegacy;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mgefimov.ClaudeLegacy.debug;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";

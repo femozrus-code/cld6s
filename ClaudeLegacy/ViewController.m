@@ -49,6 +49,16 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
 @property (nonatomic, copy, nullable) NSString *siteBuild;
 @property (nonatomic, assign) BOOL showingFailure;
 
+/// Diagnostic-only: a persistent, always-on-screen strip showing what element
+/// last received a touch, so a "button does nothing" report can be root-caused
+/// on-device without a Mac or remote Web Inspector.
+@property (nonatomic, strong) UILabel *debugLabel;
+
+/// Lets a magic-login-link that Mail insists on opening in Safari be brought
+/// back into this app's (patched) WebKit engine instead: copy the link in
+/// Mail, then tap this to load it here.
+@property (nonatomic, strong) UIButton *pasteLinkButton;
+
 @end
 
 @implementation ViewController
@@ -129,8 +139,12 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
 
     [self.webView.configuration.userContentController addScriptMessageHandler:self name:@"patchScript"];
     [self.webView.configuration.userContentController addScriptMessageHandler:self name:@"loadingStatus"];
+    [self.webView.configuration.userContentController addScriptMessageHandler:self name:@"tapDebug"];
 
     [self.webView addObserver:self forKeyPath:@"estimatedProgress" options:0 context:NULL];
+
+    [self setupDebugOverlay];
+    [self setupPasteLinkButton];
 
     //[self showLoadingOverlay];
 
@@ -153,6 +167,7 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
     [self injectCustomCSS];
     [self injectScriptNamed:@"legacy-transpiler"];
     [self injectScriptNamed:@"patch"];
+    [self injectScriptNamed:@"debug-probe"];
     [PolyfillsLoader injectPolyfillsIntoController:_webView.configuration.userContentController];
 
     [self.loadingOverlay setProgress:0.05 animated:YES];
@@ -168,6 +183,118 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
 
 - (void)handleRefresh:(UIRefreshControl *)refreshControl {
     [_webView reload];
+}
+
+#pragma mark - Debug overlay (diagnostic build only)
+
+- (void)setupDebugOverlay {
+    UILabel *label = [[UILabel alloc] init];
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    label.numberOfLines = 0;
+    label.font = [UIFont monospacedSystemFontOfSize:11 weight:UIFontWeightRegular];
+    label.textColor = UIColor.whiteColor;
+    label.backgroundColor = [UIColor colorWithWhite:0 alpha:0.72];
+    label.text = @"[debug] waiting for a tap…";
+    label.userInteractionEnabled = NO; // never intercepts real taps
+    label.lineBreakMode = NSLineBreakByTruncatingTail;
+
+    [self.view addSubview:label];
+    self.debugLabel = label;
+
+    UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [label.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [label.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [label.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor],
+        [label.heightAnchor constraintGreaterThanOrEqualToConstant:70],
+    ]];
+    label.numberOfLines = 6;
+    label.textAlignment = NSTextAlignmentLeft;
+    label.contentMode = UIViewContentModeTop;
+    label.layer.zPosition = 1000;
+}
+
+- (void)handleTapDebug:(NSDictionary *)body {
+    if (![body isKindOfClass:NSDictionary.class]) {
+        return;
+    }
+
+    NSString *phase = body[@"phase"] ?: @"?";
+    NSDictionary *target = [body[@"target"] isKindOfClass:NSDictionary.class] ? body[@"target"] : nil;
+    NSDictionary *atPoint = [body[@"atPoint"] isKindOfClass:NSDictionary.class] ? body[@"atPoint"] : nil;
+    NSString *lastErr = [body[@"lastErr"] isKindOfClass:NSString.class] ? body[@"lastErr"] : nil;
+
+    NSString *targetDesc = target
+        ? [NSString stringWithFormat:@"<%@ id=%@ class=\"%@\"> pe=%@ op=%@ vis=%@ z=%@ disp=%@ \"%@\"",
+           target[@"tag"], target[@"id"] ?: @"-", target[@"cls"] ?: @"",
+           target[@"pe"], target[@"opacity"], target[@"vis"], target[@"z"], target[@"disp"],
+           target[@"text"]]
+        : @"(none)";
+
+    NSMutableString *text = [NSMutableString string];
+    [text appendFormat:@"[%@] hit: %@", phase, targetDesc];
+    if (atPoint) {
+        [text appendFormat:@"\n  ⚠️ elementFromPoint differs: <%@ id=%@ class=\"%@\"> pe=%@ z=%@",
+         atPoint[@"tag"], atPoint[@"id"] ?: @"-", atPoint[@"cls"] ?: @"", atPoint[@"pe"], atPoint[@"z"]];
+    }
+    if (lastErr.length > 0) {
+        [text appendFormat:@"\n  last JS error: %@", lastErr];
+    }
+
+    NSLog(@"[tapDebug] %@", text);
+    self.debugLabel.text = text;
+}
+
+#pragma mark - Paste login link (diagnostic build only)
+
+/// A magic-link email from claude.ai opens in Mail's own Safari view by
+/// default, which has none of this app's compatibility patches and cannot
+/// render the site. There is no way for a third-party app to intercept
+/// claude.ai's own https links system-wide (that requires Anthropic to host
+/// an apple-app-site-association file declaring us as a handler, which we
+/// cannot do). Instead: the user copies the link's URL in Mail (long-press ->
+/// Copy Link) and taps this button to load that exact URL here, inside the
+/// patched WKWebView, instead of Safari.
+- (void)setupPasteLinkButton {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.translatesAutoresizingMaskIntoConstraints = NO;
+    [button setTitle:@"  Paste login link  " forState:UIControlStateNormal];
+    button.backgroundColor = [UIColor colorWithRed:0.80 green:0.42 blue:0.28 alpha:0.95];
+    [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    button.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
+    button.layer.cornerRadius = 14;
+    button.clipsToBounds = YES;
+    [button addTarget:self action:@selector(pasteLinkTapped) forControlEvents:UIControlEventTouchUpInside];
+
+    [self.view addSubview:button];
+    self.pasteLinkButton = button;
+
+    UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [button.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-12],
+        [button.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
+        [button.heightAnchor constraintEqualToConstant:32],
+    ]];
+}
+
+- (void)pasteLinkTapped {
+    NSString *urlString = UIPasteboard.generalPasteboard.string;
+    NSURL *url = [NSURL URLWithString:urlString ?: @""];
+    BOOL looksValid = url && url.scheme && [url.scheme hasPrefix:@"http"] && url.host.length > 0;
+
+    if (!looksValid) {
+        UIAlertController *alert = [UIAlertController
+            alertControllerWithTitle:@"No link on clipboard"
+            message:@"In Mail, long-press the \"Log in\" link and choose Copy Link, then come back and tap this button again."
+            preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+    }
+
+    NSLog(@"[pasteLink] loading %@", url);
+    self.debugLabel.text = [NSString stringWithFormat:@"[pasteLink] loading: %@", urlString];
+    [self.webView loadRequest:[NSURLRequest requestWithURL:url]];
 }
 
 #pragma mark - Loading overlay
@@ -485,6 +612,11 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
 {
     if ([message.name isEqualToString:@"loadingStatus"]) {
         [self handleLoadingStatus:message.body];
+        return;
+    }
+
+    if ([message.name isEqualToString:@"tapDebug"]) {
+        [self handleTapDebug:message.body];
         return;
     }
 
