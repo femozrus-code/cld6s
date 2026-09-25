@@ -63,6 +63,7 @@
   let readySent = false;
   let readyTimer = null;
   let readyAttempts = 0;
+  let scriptObserver = null;
 
   const checkReady = () => {
     if (readySent) return;
@@ -71,6 +72,14 @@
     if (document.readyState === "complete" && painted) {
       readySent = true;
       status({ stage: "ready" });
+      // The entry chunk has long since been intercepted by now, and everything
+      // after it is loaded through the transpiler's own import hooks. Left
+      // running, the subtree observer would fire on every DOM change for the
+      // rest of the session — each streamed token of a reply included.
+      if (scriptObserver) {
+        scriptObserver.disconnect();
+        scriptObserver = null;
+      }
       return;
     }
     // Claude paints well after the last module runs — around 15s in on a fast
@@ -91,6 +100,10 @@
   try {
     window.LegacyTranspiler.init({
       BASE_URL,
+      // Every transpiled module crosses the native bridge twice (page -> app ->
+      // page) and is stored in the cache, so dropping the indentation shrinks
+      // all three.
+      minify: true,
       runScript: (code, src) => {
         window.webkit.messageHandlers.patchScript.postMessage({
           code: code,
@@ -108,7 +121,7 @@
     return;
   }
 
-  const observer = new MutationObserver((mutations) => {
+  scriptObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (node.tagName === "SCRIPT" && node.src && node.src.includes('index')) {
@@ -129,7 +142,7 @@
     }
   });
 
-  observer.observe(document.documentElement, {
+  scriptObserver.observe(document.documentElement, {
     childList: true,
     subtree: true,
   });

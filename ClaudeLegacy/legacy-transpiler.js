@@ -8385,12 +8385,10 @@ var LegacyTranspiler = (() => {
     if (cache) {
       const cached = await cache.match(src);
       if (cached) {
-        console.log("[cache hit]", src);
         options.runScript(await cached.text(), src);
         return;
       }
     }
-    console.warn("[cache miss]", src);
     const r = await fetch(src);
     const code = await r.text();
     const patchedScript = transpile(src, code);
@@ -8403,7 +8401,6 @@ var LegacyTranspiler = (() => {
     options = o;
   }
   function exportModule(source, exports) {
-    console.log("[exportModule] ".concat(source, " \u2192"), exports);
     if (_moduleExports[source]) {
       Object.assign(_moduleExports[source], exports);
     } else {
@@ -8440,7 +8437,6 @@ var LegacyTranspiler = (() => {
   }
   function importModule(source, importer) {
     source = resolveModule(source);
-    console.log("[importModule]", source);
     if (_moduleFinalized.has(source)) {
       return Promise.resolve(_moduleExports[source]);
     }
