@@ -32,6 +32,13 @@ static const NSTimeInterval kMinimumElapsedBeforeErrorScreen = 30.0;
 /// Hard stop: never keep the overlay up longer than this.
 static const NSTimeInterval kLoadingTimeout = 60.0;
 
+/// The tap probe measures layout (getComputedStyle, getBoundingClientRect,
+/// innerText, elementFromPoint) and crosses the native bridge on every touch,
+/// and its on-screen strip sits translucently over the web view while it
+/// scrolls. Both make the app noticeably laggier on old devices, so they are
+/// only switched on when chasing a "button does nothing" report.
+static const BOOL kTapDiagnosticsEnabled = NO;
+
 @interface ViewController () <WKNavigationDelegate, WKScriptMessageHandler>
 
 @property (nonatomic) IBOutlet WKWebView *webView;
@@ -155,11 +162,15 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
 
     [self.webView.configuration.userContentController addScriptMessageHandler:self name:@"patchScript"];
     [self.webView.configuration.userContentController addScriptMessageHandler:self name:@"loadingStatus"];
-    [self.webView.configuration.userContentController addScriptMessageHandler:self name:@"tapDebug"];
+    if (kTapDiagnosticsEnabled) {
+        [self.webView.configuration.userContentController addScriptMessageHandler:self name:@"tapDebug"];
+    }
 
     [self.webView addObserver:self forKeyPath:@"estimatedProgress" options:0 context:NULL];
 
-    [self setupDebugOverlay];
+    if (kTapDiagnosticsEnabled) {
+        [self setupDebugOverlay];
+    }
     [self setupPasteLinkButton];
 
     //[self showLoadingOverlay];
@@ -257,7 +268,9 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
     [self injectScriptNamed:@"perf"];
     [self injectScriptNamed:@"legacy-transpiler"];
     [self injectScriptNamed:@"patch"];
-    [self injectScriptNamed:@"debug-probe"];
+    if (kTapDiagnosticsEnabled) {
+        [self injectScriptNamed:@"debug-probe"];
+    }
     [PolyfillsLoader injectPolyfillsIntoController:_webView.configuration.userContentController];
 
     [self.loadingOverlay setProgress:0.05 animated:YES];
@@ -751,12 +764,6 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
 
     __weak typeof(self) weakSelf = self;
     [self.webView evaluateJavaScript:wrapped completionHandler:^(id res, NSError *err) {
-        if (err) {
-            NSLog(@"[evaluateJavaScript]: fail %@", code);
-        } else {
-            NSLog(@"[evaluateJavaScript]: success"); // always return a serializable value
-        }
-
         typeof(self) strongSelf = weakSelf;
         if (!strongSelf) {
             return;
@@ -764,6 +771,7 @@ static const NSTimeInterval kLoadingTimeout = 60.0;
         if (err) {
             NSString *reason = err.userInfo[@"WKJavaScriptExceptionMessage"] ?: err.localizedDescription;
             NSString *detail = [NSString stringWithFormat:@"%@: %@", file ?: @"module", reason];
+            NSLog(@"[evaluateJavaScript] failed %@", detail);
             [strongSelf recordErrorMessage:detail];
             if (strongSelf.moduleFailure == nil) {
                 strongSelf.moduleFailure = detail;
